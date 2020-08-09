@@ -17,7 +17,10 @@ When uploading certificates to Azure Key Vault, a corresponding pkcs12 secret is
 You may list these URLs with:
 
 ```bash
-az keyvault secret list --vault-name sisrisk-prod-kv --output tsv --query '[?contentType == "application/x-pkcs12"].id'
+az keyvault secret list \
+  --vault-name sisrisk-prod-kv \
+  --output tsv \
+  --query '[?contentType == "application/x-pkcs12"].id'
 ```
 
 ### Downloading a certificate and its key
