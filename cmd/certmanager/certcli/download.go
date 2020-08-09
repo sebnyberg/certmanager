@@ -19,6 +19,7 @@ type DownloadConfig struct {
 	CertPassword     string `usage:"Certificate password - leave blank if none"`
 	OutDir           string `usage:"Output directory, defaults to current directory"`
 	FileNameOverride string `usage:"Override default file name (common name)"`
+	TimeoutSeconds   int    `name:"timeout" usage:"Timeout in seconds before giving up" value:"10"`
 }
 
 func (c DownloadConfig) validate() error {
@@ -59,11 +60,19 @@ func NewCmdDownload() *cli.Command {
 }
 
 func Download(conf DownloadConfig) error {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+	timeoutSeconds := 10
+	if conf.TimeoutSeconds > 0 {
+		timeoutSeconds = conf.TimeoutSeconds
+	}
+	timeout := time.Second * time.Duration(timeoutSeconds)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	rsaKey, x509Cert, err := certmanager.GetCert(ctx, conf.URL, "")
+	rsaKey, x509Cert, err := certmanager.GetCert(ctx, conf.URL, conf.CertPassword)
 	if err != nil {
+		if ctx.Done() != nil {
+			return errors.New("request timed out - please verify that the URL is correct")
+		}
 		return err
 	}
 
