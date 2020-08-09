@@ -14,7 +14,7 @@ go get github.com/sebnyberg/certmanager/cmd/certmanager
 
 Let's say we have created a new gRPC service we wish to host with mTLS authentication.
 
-Start by creating a new Azure Key Vault, let's call it "my-keyvault":
+Start by creating a new Azure Key Vault, let's call it `my-keyvault`:
 
 ```bash
 az keyvault create -g myrg -n my-keyvault
@@ -29,7 +29,7 @@ Being the owner (creator) of the vault does not automatically grant necessary ac
 
 ### Generate the custom CA
 
-Generate the CA certificate (we call it `customca`) via the CLI:
+Generate the CA certificate (let's call it `customca`) via the CLI:
 
 ```bash
 certmanager gen ca-cert \
