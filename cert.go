@@ -22,7 +22,18 @@ func GetCert(ctx context.Context, url string, certPassword string) (*x509.Certif
 	return getAzureKVCert(ctx, url, certPassword)
 }
 
-func GenSignedClientCert(caCert *x509.Certificate, caKey *rsa.PrivateKey, clientName string) (*x509.Certificate, *rsa.PrivateKey, error) {
+// GenSignedCert generates a new certificate that has been signed by the provided
+// certificate authority (CA). The provided hostname will be used as the CommonName (CN),
+// and the list of sans, Subject Alternative Names (SAN), are added to the certificate as well.
+//
+// For mTLS, it is important that the server's hostname matches that of the certificate.
+// For alternative addresses, simply add them to the sans list.
+func GenSignedCert(
+	caCert *x509.Certificate,
+	caKey *rsa.PrivateKey,
+	hostname string,
+	sans []string,
+) (*x509.Certificate, *rsa.PrivateKey, error) {
 	var errOnce sync.Once
 	var firstErr error
 	check := func(err error) {
@@ -38,23 +49,23 @@ func GenSignedClientCert(caCert *x509.Certificate, caKey *rsa.PrivateKey, client
 	pkixCACert := pkix.NewCertificateFromDER(caCert.Raw)
 
 	// Generate key
-	pkixClientKey, err := pkix.CreateRSAKey(2048)
+	pkixKey, err := pkix.CreateRSAKey(2048)
 	check(err)
 
 	// Create CSR
-	csr, err := pkix.CreateCertificateSigningRequest(pkixClientKey, "", nil, []string{clientName}, nil, "", "", "", "", clientName)
+	csr, err := pkix.CreateCertificateSigningRequest(pkixKey, "", nil, []string{hostname}, nil, "", "", "", "", hostname)
 	check(err)
 
 	// Sign
-	pkixClientCert, err := pkix.CreateCertificateHost(pkixCACert, pkixCAKey, csr, time.Now().AddDate(0, 18, 0))
+	pkixCert, err := pkix.CreateCertificateHost(pkixCACert, pkixCAKey, csr, time.Now().AddDate(0, 18, 0))
 	check(err)
 
 	// Parse cert as x509
-	clientCert, err := pkixClientCert.GetRawCertificate()
+	cert, err := pkixCert.GetRawCertificate()
 	check(err)
 
 	// Parse key as *rsa.Key
-	clientKey, ok := pkixClientKey.Private.(*rsa.PrivateKey)
+	key, ok := pkixKey.Private.(*rsa.PrivateKey)
 	if !ok {
 		errOnce.Do(func() {
 			firstErr = errors.New("failed to parse crypto.key as rsa.PrivateKey")
@@ -62,7 +73,7 @@ func GenSignedClientCert(caCert *x509.Certificate, caKey *rsa.PrivateKey, client
 	}
 
 	if firstErr == nil {
-		return clientCert, clientKey, firstErr
+		return cert, key, firstErr
 	}
 	return nil, nil, firstErr
 }

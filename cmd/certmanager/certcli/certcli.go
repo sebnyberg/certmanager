@@ -36,7 +36,10 @@ func writeKey(path string, rsaKey *rsa.PrivateKey) error {
 	log.Println("saving certificate key to", path, "...")
 	keyFile, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR|os.O_EXCL, 0600)
 	if err != nil {
-		return err
+		if errors.Is(err, os.ErrExist) {
+			log.Println("file", path, "already exists, skipping...")
+			return nil
+		}
 	}
 	defer keyFile.Close()
 	_, err = keyFile.Write(keyBytes)
@@ -53,6 +56,10 @@ func writeCert(path string, x509Cert *x509.Certificate) error {
 	log.Println("saving certificate to", path, "...")
 	certFile, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR|os.O_EXCL, 0600)
 	if err != nil {
+		if errors.Is(err, os.ErrExist) {
+			log.Println("file", path, "already exists, skipping...")
+			return nil
+		}
 		return err
 	}
 	defer certFile.Close()

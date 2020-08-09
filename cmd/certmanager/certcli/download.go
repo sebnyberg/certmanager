@@ -14,7 +14,7 @@ import (
 type DownloadConfig struct {
 	URL            string `env:"URL" usage:"Secret URL, e.g. https://myvault.azure.net/secrets/mycert"`
 	CertPassword   string `usage:"Certificate password - leave blank if none"`
-	OutDir         string `usage:"Output directory, defaults to current directory"`
+	OutDir         string `value:"." usage:"Output directory, defaults to current directory"`
 	TimeoutSeconds int    `name:"timeout" usage:"Timeout in seconds before giving up" value:"10"`
 }
 
@@ -61,20 +61,18 @@ func download(conf DownloadConfig) error {
 	}
 
 	fileName := cert.Subject.CommonName
-	outDir := "."
-	if len(conf.OutDir) > 0 {
-		outDir = conf.OutDir
+	if err = os.MkdirAll(conf.OutDir, 0644); err != nil {
+		return err
 	}
-	os.MkdirAll(outDir, 0644)
 
 	// Write key to file
-	keyPath := outDir + "/" + fileName + ".key"
+	keyPath := conf.OutDir + "/" + fileName + ".key"
 	if err = writeKey(keyPath, key); err != nil {
 		return err
 	}
 
 	// Write cert to file
-	certPath := outDir + "/" + fileName + ".crt"
+	certPath := conf.OutDir + "/" + fileName + ".crt"
 	if err := writeCert(certPath, cert); err != nil {
 		return err
 	}

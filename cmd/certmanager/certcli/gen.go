@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/sebnyberg/certmanager"
@@ -12,20 +13,21 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-type GenSignedClientConfig struct {
+type GenSignedConfig struct {
 	CAURL          string `env:"CA_URL" name:"ca-url" usage:"URL to CA certificate secret e.g. https://myvault.azure.net/secrets/myca"`
 	CACertPassword string `usage:"CA Certificate password - leave blank if none"`
-	OutDir         string `usage:"Output directory, defaults to current directory"`
+	OutDir         string `value:"." usage:"Output directory, defaults to current directory"`
 	TimeoutSeconds int    `name:"timeout" usage:"Timeout in seconds before giving up" value:"10"`
-	ClientName     string `usage:"Identifier for the client, e.g. 'cli-client'"`
+	CommonName     string `usage:"Hostname for a server, e.g. '*.dev.my.domain.com' and any id for a client, e.g. 'my-client'"`
+	Domains        string `usage:"Comma-separated list of alternative domain names"`
 }
 
-func (c GenSignedClientConfig) validate() error {
+func (c GenSignedConfig) validate() error {
 	if len(c.CAURL) == 0 {
 		return errors.New("URL is required")
 	}
 
-	if len(c.ClientName) < 3 {
+	if len(c.CommonName) < 3 {
 		return errors.New("client name is required")
 	}
 
@@ -37,29 +39,30 @@ func NewCmdGen() *cli.Command {
 		Name:        "gen",
 		Description: "generate certificates and keys",
 		Subcommands: []*cli.Command{
-			newCmdSignedClient(),
+			newCmdSignedCert(),
 		},
 	}
 }
 
 // Generate a client certificate signed by a CA.
-func newCmdSignedClient() *cli.Command {
-	var conf GenSignedClientConfig
+func newCmdSignedCert() *cli.Command {
+	var conf GenSignedConfig
 
 	return &cli.Command{
-		Name:        "signed-client",
+		Name:        "signed-cert",
 		Description: "Generate a client certificate signed by a CA",
 		Flags:       flagtags.MustParseFlags(&conf),
 		Action: func(c *cli.Context) error {
 			if err := conf.validate(); err != nil {
 				return err
 			}
-			return genSignedClient(conf)
+			return genSignedCert(conf)
 		},
 	}
 }
 
-func genSignedClient(conf GenSignedClientConfig) error {
+func genSignedCert(conf GenSignedConfig) error {
+	// Initialize context
 	timeoutSeconds := 10
 	if conf.TimeoutSeconds > 0 {
 		timeoutSeconds = conf.TimeoutSeconds
@@ -68,12 +71,18 @@ func genSignedClient(conf GenSignedClientConfig) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	// Create output dir
-	outDir := "."
-	if len(conf.OutDir) > 0 {
-		outDir = conf.OutDir
+	// Parse domain names
+	if len(conf.Domains) > 0 {
+		domains := strings.Split(conf.Domains, ",")
+		for i := range domains {
+			domains[i] = strings.Trim(domains[i], " ")
+		}
 	}
-	os.MkdirAll(outDir, 0644)
+
+	// Create output dir
+	if err := os.MkdirAll(conf.OutDir, 0644); err != nil {
+		return err
+	}
 
 	// Fetch CA cert and key
 	caCert, caKey, err := certmanager.GetCert(ctx, conf.CAURL, conf.CACertPassword)
@@ -81,25 +90,25 @@ func genSignedClient(conf GenSignedClientConfig) error {
 		return err
 	}
 
-	// Sign client
-	clientCert, clientKey, err := certmanager.GenSignedClientCert(caCert, caKey, conf.ClientName)
+	// Sign cert
+	cert, key, err := certmanager.GenSignedCert(caCert, caKey, conf.CommonName, []string{"localhost"})
 	if err != nil {
 		return err
 	}
 
 	// Write files
-	caCertPath := fmt.Sprintf("%v/%v.crt", outDir, caCert.Subject.CommonName)
+	caCertPath := fmt.Sprintf("%v/%v.crt", conf.OutDir, caCert.Subject.CommonName)
 	if err := writeCert(caCertPath, caCert); err != nil {
 		return err
 	}
 
-	clientCertPath := fmt.Sprintf("%v/%v.crt", outDir, conf.ClientName)
-	if err := writeCert(clientCertPath, clientCert); err != nil {
+	clientCertPath := fmt.Sprintf("%v/%v.crt", conf.OutDir, conf.CommonName)
+	if err := writeCert(clientCertPath, cert); err != nil {
 		return err
 	}
 
-	clientKeyPath := fmt.Sprintf("%v/%v.key", outDir, conf.ClientName)
-	if err := writeKey(clientKeyPath, clientKey); err != nil {
+	clientKeyPath := fmt.Sprintf("%v/%v.key", conf.OutDir, conf.CommonName)
+	if err := writeKey(clientKeyPath, key); err != nil {
 		return err
 	}
 
