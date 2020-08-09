@@ -13,8 +13,8 @@ func main() {
 	app := &cli.App{
 		Name:        "certmanager",
 		HelpName:    "certmanager",
-		Description: "opinionated and simplified management of certificates",
-		Usage:       "dostuff",
+		Description: "certmanager contains some useful commands for working with certs",
+		Usage:       "management of TLS certificates",
 		Commands: []*cli.Command{
 			certcli.NewCmdDownload(),
 		},
