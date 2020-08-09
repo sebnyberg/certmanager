@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"time"
 
@@ -84,6 +85,7 @@ func Download(conf DownloadConfig) error {
 		return err
 	}
 	keyPath := outDir + "/" + fileName + ".key"
+	log.Println("saving certificate key to", keyPath, "...")
 	keyFile, err := os.OpenFile(keyPath, os.O_CREATE|os.O_RDWR|os.O_EXCL, 0600)
 	if err != nil {
 		return err
@@ -101,6 +103,7 @@ func Download(conf DownloadConfig) error {
 		return err
 	}
 	certPath := outDir + "/" + fileName + ".crt"
+	log.Println("saving certificate to", certPath, "...")
 	certFile, err := os.OpenFile(certPath, os.O_CREATE|os.O_RDWR|os.O_EXCL, 0600)
 	if err != nil {
 		return err
