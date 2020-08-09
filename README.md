@@ -10,7 +10,7 @@ go get github.com/sebnyberg/certmanager/cmd/certmanager
 
 ## Azure Key Vault
 
-### Finding the URL for a cert
+### Find the URL for a cert
 
 When uploading certificates to Azure Key Vault, a corresponding pkcs12 secret is created (but not viewable in the UI).
 
@@ -23,7 +23,7 @@ az keyvault secret list \
   --query '[?contentType == "application/x-pkcs12"].id'
 ```
 
-### Downloading a certificate and its key
+### Download a certificate and its key
 
 To download the certificate and key, simply run:
 
@@ -32,7 +32,7 @@ certmanager download \
   --url "https://$YOUR_VAULT.vault.azure.net/secrets/$YOUR_CERT"
 ```
 
-### Creating a new client certificate and key
+### Create a client certificate and key
 
 To create a new client certificate and key signed by the remote CA, use the `gen signed-cert` command.
 
@@ -44,7 +44,7 @@ certmanager gen signed-cert \
   --common-name "cli-client"
 ```
 
-### Creating a new server certificate and key
+### Create a server certificate and key
 
 To create a new server certificate and key signed by the remote CA, use the `gen signed-cert` command.
 

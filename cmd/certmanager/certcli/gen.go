@@ -13,27 +13,6 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-type GenSignedConfig struct {
-	CAURL          string `env:"CA_URL" name:"ca-url" usage:"URL to CA certificate secret e.g. https://myvault.azure.net/secrets/myca"`
-	CACertPassword string `usage:"CA Certificate password - leave blank if none"`
-	OutDir         string `value:"." usage:"Output directory, defaults to current directory"`
-	TimeoutSeconds int    `name:"timeout" usage:"Timeout in seconds before giving up" value:"10"`
-	CommonName     string `usage:"Hostname for a server, e.g. '*.dev.my.domain.com' and any id for a client, e.g. 'my-client'"`
-	Domains        string `usage:"Comma-separated list of alternative domain names"`
-}
-
-func (c GenSignedConfig) validate() error {
-	if len(c.CAURL) == 0 {
-		return errors.New("URL is required")
-	}
-
-	if len(c.CommonName) < 3 {
-		return errors.New("client name is required")
-	}
-
-	return validateDir(c.OutDir)
-}
-
 func NewCmdGen() *cli.Command {
 	return &cli.Command{
 		Name:        "gen",
@@ -44,9 +23,69 @@ func NewCmdGen() *cli.Command {
 	}
 }
 
+type genSignedConfig struct {
+	CAURL          string `env:"CA_URL" name:"ca-url" usage:"URL to CA certificate secret e.g. https://myvault.azure.net/secrets/myca"`
+	CACertPassword string `usage:"CA Certificate password - leave blank if none"`
+	OutDir         string `value:"." usage:"Output directory, defaults to current directory"`
+	TimeoutSeconds int    `name:"timeout" usage:"Timeout in seconds before giving up" value:"10"`
+	CommonName     string `usage:"Hostname for a server, e.g. '*.dev.my.domain.com' and any id for a client, e.g. 'my-client'"`
+	Domains        string `usage:"Comma-separated list of alternative domain names"`
+}
+
+func (c genSignedConfig) validate() error {
+	if len(c.CAURL) == 0 {
+		return errors.New("CA URL is required")
+	}
+
+	if len(c.CommonName) == 0 {
+		return errors.New("common name is required")
+	}
+
+	return validateDir(c.OutDir)
+}
+
+type genCAConfig struct {
+	URL            string `usage:"URL to upload result to, e.g. https://myvault.azure.net/secrets/myca"`
+	CertPassword   string `usage:"Certiciate Authority (CA) certificate password - leave blank if none"`
+	TimeoutSeconds int    `name:"timeout" usage:"Timeout in seconds before giving up" value:"10"`
+	CAName         string `usage:"Certificate Authority (CA) name"`
+}
+
+func (c genCAConfig) validate() error {
+	if len(c.URL) == 0 {
+		return errors.New("URL is required")
+	}
+	if len(c.CAName) == 0 {
+		return errors.New("CA name is required")
+	}
+	return nil
+}
+
+func newCmdGenCACert() *cli.Command {
+	var conf genCAConfig
+
+	return &cli.Command{
+		Name:        "ca-cert",
+		Description: "Generate and upload a CA certificate",
+		Flags:       flagtags.MustParseFlags(&conf),
+		Action: func(c *cli.Context) error {
+			if err := conf.validate(); err != nil {
+				return err
+			}
+			return genCACert(conf)
+		},
+	}
+}
+
+func genCACert(conf genCAConfig) error {
+	cert, key, err := certmanager.GenCACert(conf.CAName)
+
+	return nil
+}
+
 // Generate a client certificate signed by a CA.
 func newCmdSignedCert() *cli.Command {
-	var conf GenSignedConfig
+	var conf genSignedConfig
 
 	return &cli.Command{
 		Name:        "signed-cert",
@@ -61,7 +100,7 @@ func newCmdSignedCert() *cli.Command {
 	}
 }
 
-func genSignedCert(conf GenSignedConfig) error {
+func genSignedCert(conf genSignedConfig) error {
 	// Initialize context
 	timeoutSeconds := 10
 	if conf.TimeoutSeconds > 0 {
