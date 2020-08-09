@@ -162,8 +162,8 @@ func newAzureEnvAuthorizer() (autorest.Authorizer, error) {
 	return auth.NewAuthorizerFromEnvironment()
 }
 
-var errInvalidKVSecretURL = errors.New("invalid key vault secret URL, expected format: https://{baseURL}/secrets/{secretName}(/{version})")
-var errInvalidKVCertURL = errors.New("invalid key vault certificate URL, expected format: https://{baseURL}/certificates/{certName}")
+var errInvalidKVSecretURL = errors.New("invalid key vault secret URL, expected format: https://{baseURL}/secrets/{secretName}(/{version}) - did you forget to change /certificates/ to /secrets/?")
+var errInvalidKVCertURL = errors.New("invalid key vault certificate URL, expected format: https://{baseURL}/certificates/{certName}, - did you forget to change /secrets/ to /certificates/?")
 
 func parseAzureSecretURL(urlStr string) (baseURL, secretName, secretVersion string, err error) {
 	var url *url.URL

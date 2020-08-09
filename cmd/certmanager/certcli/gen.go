@@ -46,7 +46,7 @@ func (c genSignedConfig) validate() error {
 }
 
 type genCAConfig struct {
-	URL            string `usage:"Certificate URL to upload result to, e.g. https://myvault.azure.net/certificates/myca"`
+	URL            string `name:"ca-url" usage:"Certificate URL to upload result to, e.g. https://myvault.azure.net/certificates/myca"`
 	Name           string `usage:"Certificate Authority (CA) name" name:"name"`
 	CertPassword   string `usage:"Certificate Authority (CA) certificate password - leave blank if none"`
 	TimeoutSeconds int    `name:"timeout" usage:"Timeout in seconds before giving up" value:"10"`
