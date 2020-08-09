@@ -10,12 +10,12 @@ import (
 	"strings"
 )
 
-func GetCert(ctx context.Context, url string) (*rsa.PrivateKey, *x509.Certificate, error) {
+func GetCert(ctx context.Context, url string, certPassword string) (*rsa.PrivateKey, *x509.Certificate, error) {
 	if !strings.Contains(url, "vault.azure.net") {
 		return nil, nil, errors.New("only azure key vault URLs are supported")
 	}
 
-	return getAzureKVCert(ctx, url, "")
+	return getAzureKVCert(ctx, url, certPassword)
 }
 
 func check(err error, msg string) {
