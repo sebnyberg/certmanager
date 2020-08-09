@@ -19,6 +19,7 @@ func NewCmdGen() *cli.Command {
 		Description: "generate certificates and keys",
 		Subcommands: []*cli.Command{
 			newCmdSignedCert(),
+			newCmdGenCACert(),
 		},
 	}
 }
@@ -45,18 +46,21 @@ func (c genSignedConfig) validate() error {
 }
 
 type genCAConfig struct {
-	URL            string `usage:"URL to upload result to, e.g. https://myvault.azure.net/secrets/myca"`
-	CertPassword   string `usage:"Certiciate Authority (CA) certificate password - leave blank if none"`
+	URL            string `usage:"Certificate URL to upload result to, e.g. https://myvault.azure.net/certificates/myca"`
+	Name           string `usage:"Certificate Authority (CA) name" name:"name"`
+	CertPassword   string `usage:"Certificate Authority (CA) certificate password - leave blank if none"`
 	TimeoutSeconds int    `name:"timeout" usage:"Timeout in seconds before giving up" value:"10"`
-	CAName         string `usage:"Certificate Authority (CA) name"`
 }
 
 func (c genCAConfig) validate() error {
 	if len(c.URL) == 0 {
 		return errors.New("URL is required")
 	}
-	if len(c.CAName) == 0 {
+	if len(c.Name) == 0 {
 		return errors.New("CA name is required")
+	}
+	if !strings.HasSuffix(c.URL, c.Name) {
+		return errors.New("CA name must match certificate name in the URL, e.g. MyCA -> https://myvault.azure.net/certificates/MyCA")
 	}
 	return nil
 }
@@ -78,9 +82,21 @@ func newCmdGenCACert() *cli.Command {
 }
 
 func genCACert(conf genCAConfig) error {
-	cert, key, err := certmanager.GenCACert(conf.CAName)
+	// Initialize context
+	timeoutSeconds := 10
+	if conf.TimeoutSeconds > 0 {
+		timeoutSeconds = conf.TimeoutSeconds
+	}
+	timeout := time.Second * time.Duration(timeoutSeconds)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 
-	return nil
+	cert, key, err := certmanager.GenCACert(conf.Name)
+	if err != nil {
+		return err
+	}
+
+	return certmanager.UploadCert(ctx, conf.URL, cert, key, conf.CertPassword)
 }
 
 // Generate a client certificate signed by a CA.

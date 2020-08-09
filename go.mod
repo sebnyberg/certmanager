@@ -11,7 +11,7 @@ require (
 	github.com/Azure/go-autorest/autorest/to v0.4.0 // indirect
 	github.com/Azure/go-autorest/autorest/validation v0.3.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.0 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/davecgh/go-spew v1.1.1
 	github.com/google/go-cmp v0.5.1
 	github.com/kr/pretty v0.2.1
 	github.com/sebnyberg/flagtags v0.0.0-20200729155216-6ba7188a27be
@@ -19,4 +19,5 @@ require (
 	github.com/urfave/cli v1.21.0
 	github.com/urfave/cli/v2 v2.2.0
 	golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de
+	software.sslmate.com/src/go-pkcs12 v0.0.0-20200619203921-c9ed90bd32dc
 )

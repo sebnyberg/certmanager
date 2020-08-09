@@ -29,7 +29,7 @@ func Test_parseAzureSecretURL(t *testing.T) {
 		},
 		{
 			"https://test-vault.vault.azure.net/secrets/",
-			Resp{"", "", ""}, errInvalidKeyVaultURL,
+			Resp{"", "", ""}, errInvalidKVSecretURL,
 		},
 	} {
 		t.Run(tc.in, func(t *testing.T) {

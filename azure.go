@@ -2,6 +2,7 @@ package certmanager
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
@@ -15,10 +16,10 @@ import (
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/Azure/go-autorest/autorest/azure/cli"
-	"golang.org/x/crypto/pkcs12"
+	pkcs12 "software.sslmate.com/src/go-pkcs12"
 )
 
-func getAzureKVCert(ctx context.Context, urlStr string, certPassword string) (*x509.Certificate, *rsa.PrivateKey, error) {
+func newAzureKVClient() (keyvault.BaseClient, error) {
 	kv := keyvault.New()
 
 	var err error
@@ -28,8 +29,17 @@ func getAzureKVCert(ctx context.Context, urlStr string, certPassword string) (*x
 	if err != nil {
 		kv.Authorizer, err = newAzureEnvAuthorizer()
 		if err != nil {
-			return nil, nil, appendErr("failed to authenticate against Azure", err)
+			return kv, appendErr("failed to authenticate against Azure", err)
 		}
+	}
+
+	return kv, nil
+}
+
+func getAzureKVCert(ctx context.Context, urlStr string, certPassword string) (*x509.Certificate, *rsa.PrivateKey, error) {
+	kv, err := newAzureKVClient()
+	if err != nil {
+		return nil, nil, err
 	}
 
 	// Parse URL provided by caller
@@ -48,47 +58,82 @@ func getAzureKVCert(ctx context.Context, urlStr string, certPassword string) (*x
 		return nil, nil, fmt.Errorf("invalid secret content type '%v', should be '%v'", *bundle.ContentType, expectedContentType)
 	}
 
-	// Decode contents
+	// Decode contents from base64
 	pfx, err := base64.StdEncoding.DecodeString(*bundle.Value)
 	if err != nil {
 		return nil, nil, appendErr("failed to base64-decode secret", err)
 	}
 
-	// Convert secret contents to PEM blocks
-	blocks, err := pkcs12.ToPEM(pfx, certPassword)
+	// Decode pfx to x509.Certificate and rsa.PublicKey
+	keyIface, cert, err := pkcs12.Decode(pfx, certPassword)
 	if err != nil {
-		return nil, nil, appendErr("failed to convert pkcs12 to PEM", err)
+		return nil, nil, appendErr("failed to parse pkcs12", err)
 	}
-	if len(blocks) != 2 {
-		return nil, nil, fmt.Errorf("PEM should contain two (2) blocks: cert and key - got: %v", len(blocks))
+	key, ok := keyIface.(*rsa.PrivateKey)
+	if !ok {
+		return nil, nil, errors.New("failed to parse key as rsa.PrivateKey")
 	}
-
-	var (
-		key  *rsa.PrivateKey
-		cert *x509.Certificate
-	)
-
-	for _, block := range blocks {
-		switch block.Type {
-		case "PRIVATE KEY":
-			if key, err = x509.ParsePKCS1PrivateKey(block.Bytes); err != nil {
-				return nil, nil, appendErr("failed to parse private key", err)
-			}
-		case "CERTIFICATE":
-			if cert, err = x509.ParseCertificate(block.Bytes); err != nil {
-				return nil, nil, appendErr("failed to parse certificate", err)
-			}
-		default:
-			return nil, nil, fmt.Errorf("invalid PEM block (%v)", block.Type)
-		}
-	}
-
 	return cert, key, nil
 }
 
-var kvResourceURL = "https://vault.azure.net"
+func uploadAzureKVCert(ctx context.Context, urlStr string, cert *x509.Certificate, key *rsa.PrivateKey, certPassword string) error {
+	kv, err := newAzureKVClient()
+	if err != nil {
+		return err
+	}
+
+	// Parse URL provided by caller
+	baseURL, certName, err := parseAzureCertURL(urlStr)
+	if err != nil {
+		return appendErr("failed to parse certificate URL", err)
+	}
+
+	// Check if cert already exists
+	exists, err := checkAzureKVCertExists(ctx, baseURL, certName)
+	if err != nil {
+		return appendErr("failed to check whether the certificate already exists", err)
+	}
+	if exists {
+		return fmt.Errorf("a remote certificate with the name %v already exists, exiting...", certName)
+	}
+
+	// Encode certificate to pkcs12
+	pfx, err := pkcs12.Encode(rand.Reader, key, cert, nil, certPassword)
+	if err != nil {
+		return appendErr("failed to encode pkcs12 cert", err)
+	}
+	base64Encoded := base64.StdEncoding.EncodeToString(pfx)
+
+	// Upload cert
+	kv.ImportCertificate(ctx, baseURL, certName, keyvault.CertificateImportParameters{
+		Base64EncodedCertificate: &base64Encoded,
+		Password:                 &certPassword,
+	})
+
+	return nil
+}
+
+func checkAzureKVCertExists(ctx context.Context, baseURL, certName string) (bool, error) {
+	kv, err := newAzureKVClient()
+	if err != nil {
+		return false, err
+	}
+
+	_, err = kv.GetCertificate(ctx, baseURL, certName, "")
+	if err != nil {
+		if detailedErr, ok := err.(autorest.DetailedError); ok {
+			if detailedErr.StatusCode == 404 {
+				return false, nil
+			}
+		}
+		return false, err
+	}
+
+	return true, nil
+}
 
 func newAzureCLIAuthorizer() (autorest.Authorizer, error) {
+	kvResourceURL := "https://vault.azure.net"
 	token, err := cli.GetTokenFromCLI(kvResourceURL)
 	if err != nil {
 		return nil, err
@@ -117,7 +162,8 @@ func newAzureEnvAuthorizer() (autorest.Authorizer, error) {
 	return auth.NewAuthorizerFromEnvironment()
 }
 
-var errInvalidKeyVaultURL = errors.New("invalid key vault secret URL, expected format: https://{baseURL}/secrets/{secretName}(/{version})")
+var errInvalidKVSecretURL = errors.New("invalid key vault secret URL, expected format: https://{baseURL}/secrets/{secretName}(/{version})")
+var errInvalidKVCertURL = errors.New("invalid key vault certificate URL, expected format: https://{baseURL}/certificates/{certName}")
 
 func parseAzureSecretURL(urlStr string) (baseURL, secretName, secretVersion string, err error) {
 	var url *url.URL
@@ -129,18 +175,43 @@ func parseAzureSecretURL(urlStr string) (baseURL, secretName, secretVersion stri
 	var r *regexp.Regexp
 	r, err = regexp.Compile("/secrets/([^/]+)/?([^/]+)?")
 	if err != nil {
-		err = errInvalidKeyVaultURL
+		err = errInvalidKVSecretURL
 		return
 	}
 	matches := r.FindStringSubmatch(url.Path)
 	if len(matches) <= 1 || len(matches) > 3 {
-		err = errInvalidKeyVaultURL
+		err = errInvalidKVSecretURL
 		return
 	}
 
 	baseURL = url.Scheme + "://" + url.Host
 	secretName = matches[1]
 	secretVersion = matches[2]
+
+	return
+}
+
+func parseAzureCertURL(urlStr string) (baseURL, certName string, err error) {
+	var url *url.URL
+	url, err = url.Parse(urlStr)
+	if err != nil {
+		return
+	}
+
+	var r *regexp.Regexp
+	r, err = regexp.Compile("/certificates/([^/]+)")
+	if err != nil {
+		err = errInvalidKVCertURL
+		return
+	}
+	matches := r.FindStringSubmatch(url.Path)
+	if len(matches) != 2 {
+		err = errInvalidKVCertURL
+		return
+	}
+
+	baseURL = url.Scheme + "://" + url.Host
+	certName = matches[1]
 
 	return
 }

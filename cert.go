@@ -22,6 +22,14 @@ func GetCert(ctx context.Context, url string, certPassword string) (*x509.Certif
 	return getAzureKVCert(ctx, url, certPassword)
 }
 
+func UploadCert(ctx context.Context, url string, cert *x509.Certificate, key *rsa.PrivateKey, certPassword string) error {
+	if !strings.Contains(url, "vault.azure.net") {
+		return errors.New("only azure key vault URLs are supported")
+	}
+
+	return uploadAzureKVCert(ctx, url, cert, key, certPassword)
+}
+
 // GenSignedCert generates a new certificate that has been signed by the provided
 // certificate authority (CA). The provided hostname will be used as the CommonName (CN),
 // and the list of sans, Subject Alternative Names (SAN), are added to the certificate as well.
