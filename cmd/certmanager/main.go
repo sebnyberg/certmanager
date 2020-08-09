@@ -17,6 +17,7 @@ func main() {
 		Usage:       "management of TLS certificates",
 		Commands: []*cli.Command{
 			certcli.NewCmdDownload(),
+			certcli.NewCmdGen(),
 		},
 	}
 
@@ -24,7 +25,6 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-
 }
 
 func check(err error) {

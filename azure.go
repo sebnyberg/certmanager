@@ -18,7 +18,7 @@ import (
 	"golang.org/x/crypto/pkcs12"
 )
 
-func getAzureKVCert(ctx context.Context, urlStr string, certPassword string) (*rsa.PrivateKey, *x509.Certificate, error) {
+func getAzureKVCert(ctx context.Context, urlStr string, certPassword string) (*x509.Certificate, *rsa.PrivateKey, error) {
 	kv := keyvault.New()
 
 	var err error
@@ -83,7 +83,7 @@ func getAzureKVCert(ctx context.Context, urlStr string, certPassword string) (*r
 		}
 	}
 
-	return key, cert, nil
+	return cert, key, nil
 }
 
 var kvResourceURL = "https://vault.azure.net"
