@@ -70,8 +70,10 @@ func Download(conf DownloadConfig) error {
 
 	rsaKey, x509Cert, err := certmanager.GetCert(ctx, conf.URL, conf.CertPassword)
 	if err != nil {
-		if ctx.Done() != nil {
+		select {
+		case <-ctx.Done():
 			return errors.New("request timed out - please verify that the URL is correct")
+		default:
 		}
 		return err
 	}
