@@ -20,7 +20,7 @@ You may list these URLs with:
 az keyvault secret list --vault-name sisrisk-prod-kv --output tsv --query '[?contentType == "application/x-pkcs12"].id'
 ```
 
-To download the certificate, simply run:
+To download the certificate and key, simply run:
 
 ```bash
 certmanager download --url "https://$YOUR_VAULT.vault.azure.net/secrets/$YOUR_CERT"
