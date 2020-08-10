@@ -27,7 +27,7 @@ Being the owner (creator) of the vault does not automatically grant necessary ac
 * Secret: Get, List, Set, Delete
 * Certificate: Get, List, Create, Import, Delete
 
-### Generate the custom CA
+### Generate a custom CA
 
 Generate the CA certificate (let's call it `customca`) via the CLI:
 
@@ -45,7 +45,7 @@ The CA certificate should show up in the Azure Portal, and also if you list cert
 az keyvault certificate list --vault-name sisrisk-prod-kv --query [].id
 ```
 
-### Generate the server certificate
+### Generate a server certificate
 
 The CA-signed server cert and key can now be generated with:
 
