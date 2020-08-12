@@ -2,118 +2,97 @@ package certmanager
 
 import (
 	"context"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 
 	"github.com/square/certstrap/pkix"
 )
 
 type signedCertificate struct {
-	caCert      *pkix.Certificate
-	caCertBytes []byte
-	cert        *pkix.Certificate
-	certBytes   []byte
-	certPool    *x509.CertPool
-	tlsCert     tls.Certificate
-	key         *pkix.Key
-	keyBytes    []byte
+	caCert   *x509.Certificate
+	certPool *x509.CertPool
+	tlsCert  tls.Certificate
 }
 
-func getTLSConfig(
-	ctx context.Context,
-	caURL string,
-	caPassword string,
-	commonName string,
-	sans []string,
-) (*signedCertificate, error) {
-	ca509Cert, caRSAKey, err := GetCert(ctx, caURL, caPassword)
+// TLSCertificate returns a tls.Certificate from the provided cert and key
+func TLSCertificate(cert *x509.Certificate, key *rsa.PrivateKey) (tls.Certificate, error) {
+	pkixCert := pkix.NewCertificateFromDER(cert.Raw)
+	certPEM, err := pkixCert.Export()
 	if err != nil {
-		return nil, err
+		return tls.Certificate{}, err
 	}
-
-	certPool := x509.NewCertPool()
-	caCert := pkix.NewCertificateFromDER(ca509Cert.Raw)
-	caCertBytes, err := caCert.Export()
+	pkixKey := pkix.NewKey(key.Public, key)
+	keyPEM, err := pkixKey.ExportPrivate()
 	if err != nil {
-		return nil, err
-	}
-	if ok := certPool.AppendCertsFromPEM(caCertBytes); !ok {
-		return nil, errors.New("failed to create certificate pool")
+		return tls.Certificate{}, err
 	}
 
-	x509Cert, rsaKey, err := GenSignedCert(ca509Cert, caRSAKey, commonName, sans)
-	if err != nil {
-		return nil, err
-	}
-
-	cert := pkix.NewCertificateFromDER(x509Cert.Raw)
-	certBytes, err := cert.Export()
-	if err != nil {
-		return nil, err
-	}
-
-	key := pkix.NewKey(rsaKey.Public, rsaKey)
-	keyBytes, err := key.ExportPrivate()
-	if err != nil {
-		return nil, err
-	}
-
-	tlsCert, err := tls.X509KeyPair(certBytes, keyBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	signedCert := signedCertificate{
-		caCert:      caCert,
-		caCertBytes: caCertBytes,
-		cert:        cert,
-		certBytes:   certBytes,
-		certPool:    certPool,
-		tlsCert:     tlsCert,
-		key:         key,
-		keyBytes:    keyBytes,
-	}
-
-	return &signedCert, nil
+	return tls.X509KeyPair(certPEM, keyPEM)
 }
 
-func MTLSClientConfig(
+func GetMTLSClientConfig(
 	ctx context.Context,
 	caURL string,
 	caPassword string,
 	clientName string,
 	serverName string,
 ) (*tls.Config, error) {
-	signedCert, err := getTLSConfig(ctx, caURL, caPassword, clientName, nil)
+	caCert, caKey, err := GetCert(ctx, caURL, caPassword)
 	if err != nil {
 		return nil, err
 	}
 
+	cert, key, err := GenSignedCert(caCert, caKey, clientName, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	tlsCert, err := TLSCertificate(cert, key)
+	if err != nil {
+		return nil, err
+	}
+
+	caPool := x509.NewCertPool()
+	caPool.AddCert(caCert)
+
 	tlsConf := tls.Config{
-		Certificates: []tls.Certificate{signedCert.tlsCert},
-		RootCAs:      signedCert.certPool,
 		ServerName:   serverName,
+		RootCAs:      caPool,
+		Certificates: []tls.Certificate{tlsCert},
 	}
 
 	return &tlsConf, nil
 }
 
-func MTLSServerConfig(
+func GetMTLSServerConfig(
 	ctx context.Context,
 	caURL string,
 	caPassword string,
 	hostname string,
 	altNames []string,
 ) (*tls.Config, error) {
-	signedCert, err := getTLSConfig(ctx, caURL, caPassword, hostname, altNames)
+	caCert, caKey, err := GetCert(ctx, caURL, caPassword)
 	if err != nil {
 		return nil, err
 	}
 
+	cert, key, err := GenSignedCert(caCert, caKey, hostname, altNames)
+	if err != nil {
+		return nil, err
+	}
+
+	tlsCert, err := TLSCertificate(cert, key)
+	if err != nil {
+		return nil, err
+	}
+
+	caPool := x509.NewCertPool()
+	caPool.AddCert(caCert)
+
 	tlsConf := tls.Config{
-		Certificates: []tls.Certificate{signedCert.tlsCert},
-		ClientCAs:    signedCert.certPool,
+		ClientCAs:    caPool,
+		Certificates: []tls.Certificate{tlsCert},
 		ClientAuth:   tls.RequireAndVerifyClientCert,
 	}
 
