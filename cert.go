@@ -39,7 +39,7 @@ func UploadCert(ctx context.Context, url string, cert *x509.Certificate, key *rs
 func GenSignedCert(
 	caCert *x509.Certificate,
 	caKey *rsa.PrivateKey,
-	hostname string,
+	commonName string,
 	sans []string,
 ) (*x509.Certificate, *rsa.PrivateKey, error) {
 	var errOnce sync.Once
@@ -61,7 +61,7 @@ func GenSignedCert(
 	check(err)
 
 	// Create CSR
-	csr, err := pkix.CreateCertificateSigningRequest(pkixKey, "", nil, []string{hostname}, nil, "", "", "", "", hostname)
+	csr, err := pkix.CreateCertificateSigningRequest(pkixKey, "", nil, []string{commonName}, nil, "", "", "", "", commonName)
 	check(err)
 
 	// Sign

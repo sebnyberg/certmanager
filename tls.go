@@ -13,7 +13,7 @@ func GetTLSConfig(
 	ctx context.Context,
 	caURL string,
 	caPassword string,
-	hostname string,
+	commonName string,
 	sans []string,
 ) (*tls.Config, error) {
 	ca509Cert, caRSAKey, err := GetCert(ctx, caURL, caPassword)
@@ -31,7 +31,7 @@ func GetTLSConfig(
 		return nil, errors.New("failed to create certificate pool")
 	}
 
-	x509Cert, rsaKey, err := GenSignedCert(ca509Cert, caRSAKey, hostname, sans)
+	x509Cert, rsaKey, err := GenSignedCert(ca509Cert, caRSAKey, commonName, sans)
 	if err != nil {
 		return nil, err
 	}
