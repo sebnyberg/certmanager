@@ -61,7 +61,8 @@ func GenSignedCert(
 	check(err)
 
 	// Create CSR
-	csr, err := pkix.CreateCertificateSigningRequest(pkixKey, "", nil, []string{commonName}, nil, "", "", "", "", commonName)
+	names := append([]string{commonName}, sans...)
+	csr, err := pkix.CreateCertificateSigningRequest(pkixKey, "", nil, names, nil, "", "", "", "", commonName)
 	check(err)
 
 	// Sign
