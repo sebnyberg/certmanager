@@ -94,7 +94,7 @@ func GenCACert(name string) (*x509.Certificate, *rsa.PrivateKey, error) {
 		return nil, nil, err
 	}
 
-	cert, err := pkix.CreateCertificateAuthority(key, "", time.Now().AddDate(0, 18, 0), "", "", "", "", name)
+	cert, err := pkix.CreateCertificateAuthority(key, "", time.Now().AddDate(10, 0, 0), "", "", "", "", name)
 	if err != nil {
 		return nil, nil, err
 	}
