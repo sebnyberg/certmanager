@@ -66,7 +66,7 @@ func GenSignedCert(
 	check(err)
 
 	// Sign
-	pkixCert, err := pkix.CreateCertificateHost(pkixCACert, pkixCAKey, csr, time.Now().AddDate(0, 18, 0))
+	pkixCert, err := pkix.CreateCertificateHost(pkixCACert, pkixCAKey, csr, time.Now().AddDate(10, 0, 0))
 	check(err)
 
 	// Parse cert as x509
