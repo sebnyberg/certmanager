@@ -51,6 +51,7 @@ type genCAConfig struct {
 	Name           string `usage:"Certificate Authority (CA) name" name:"name"`
 	CertPassword   string `usage:"Certificate Authority (CA) certificate password - leave blank if none"`
 	TimeoutSeconds int    `name:"timeout" usage:"Timeout in seconds before giving up" value:"10"`
+	ExpireAt       string `usage:"RFC3339 date when the cert will expire. By default one year from now."`
 }
 
 func (c genCAConfig) validate() error {
@@ -136,6 +137,7 @@ func genSignedCert(conf genSignedConfig) error {
 			return fmt.Errorf("failed to parse expiry date, %v", err)
 		}
 	}
+
 	// Parse domain names
 	if len(conf.Domains) > 0 {
 		domains := strings.Split(conf.Domains, ",")

@@ -89,13 +89,16 @@ func GenSignedCert(
 }
 
 // GenCACert generates a self-signed Certificate Authority certificate and key.
-func GenCACert(name string) (*x509.Certificate, *rsa.PrivateKey, error) {
+func GenCACert(
+	name string,
+	expiry time.Time,
+) (*x509.Certificate, *rsa.PrivateKey, error) {
 	key, err := pkix.CreateRSAKey(2048)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	cert, err := pkix.CreateCertificateAuthority(key, "", time.Now().AddDate(10, 0, 0), "", "", "", "", name)
+	cert, err := pkix.CreateCertificateAuthority(key, "", expiry, "", "", "", "", name)
 	if err != nil {
 		return nil, nil, err
 	}
