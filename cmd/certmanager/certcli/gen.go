@@ -89,11 +89,22 @@ func genCACert(conf genCAConfig) error {
 	if conf.TimeoutSeconds > 0 {
 		timeoutSeconds = conf.TimeoutSeconds
 	}
+
+	// Parse expiry date
+	expiry := time.Now().AddDate(10, 0, 0)
+	if conf.ExpireAt != "" {
+		var err error
+		expiry, err = time.Parse(time.RFC3339, conf.ExpireAt)
+		if err != nil {
+			return fmt.Errorf("failed to parse expiry date, %v", err)
+		}
+	}
+
 	timeout := time.Second * time.Duration(timeoutSeconds)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cert, key, err := certmanager.GenCACert(conf.Name)
+	cert, key, err := certmanager.GenCACert(conf.Name, expiry)
 	if err != nil {
 		return err
 	}
