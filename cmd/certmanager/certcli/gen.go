@@ -31,6 +31,7 @@ type genSignedConfig struct {
 	TimeoutSeconds int    `name:"timeout" usage:"Timeout in seconds before giving up" value:"10"`
 	CommonName     string `usage:"Hostname for a server, e.g. '*.dev.my.domain.com' and any id for a client, e.g. 'my-client'"`
 	Domains        string `usage:"Comma-separated list of alternative domain names"`
+	ExpireAt       string `usage:"RFC3339 date when the cert will expire. By default one year from now."`
 }
 
 func (c genSignedConfig) validate() error {
@@ -126,6 +127,15 @@ func genSignedCert(conf genSignedConfig) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
+	// Parse expiry date
+	expiry := time.Now().AddDate(10, 0, 0)
+	if conf.ExpireAt != "" {
+		var err error
+		expiry, err = time.Parse(time.RFC3339, conf.ExpireAt)
+		if err != nil {
+			return fmt.Errorf("failed to parse expiry date, %v", err)
+		}
+	}
 	// Parse domain names
 	if len(conf.Domains) > 0 {
 		domains := strings.Split(conf.Domains, ",")
@@ -146,7 +156,8 @@ func genSignedCert(conf genSignedConfig) error {
 	}
 
 	// Sign cert
-	cert, key, err := certmanager.GenSignedCert(caCert, caKey, conf.CommonName, []string{"localhost"})
+	cert, key, err := certmanager.GenSignedCert(
+		caCert, caKey, conf.CommonName, []string{"localhost"}, expiry)
 	if err != nil {
 		return err
 	}

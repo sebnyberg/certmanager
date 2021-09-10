@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"time"
 
 	"github.com/square/certstrap/pkix"
 )
@@ -37,13 +38,14 @@ func GetMTLSClientConfig(
 	caPassword string,
 	clientName string,
 	serverName string,
+	expiresAt time.Time,
 ) (*tls.Config, error) {
 	caCert, caKey, err := GetCert(ctx, caURL, caPassword)
 	if err != nil {
 		return nil, err
 	}
 
-	cert, key, err := GenSignedCert(caCert, caKey, clientName, nil)
+	cert, key, err := GenSignedCert(caCert, caKey, clientName, nil, expiresAt)
 	if err != nil {
 		return nil, err
 	}
@@ -71,13 +73,14 @@ func GetMTLSServerConfig(
 	caPassword string,
 	hostname string,
 	altNames []string,
+	expiresAt time.Time,
 ) (*tls.Config, error) {
 	caCert, caKey, err := GetCert(ctx, caURL, caPassword)
 	if err != nil {
 		return nil, err
 	}
 
-	cert, key, err := GenSignedCert(caCert, caKey, hostname, altNames)
+	cert, key, err := GenSignedCert(caCert, caKey, hostname, altNames, expiresAt)
 	if err != nil {
 		return nil, err
 	}

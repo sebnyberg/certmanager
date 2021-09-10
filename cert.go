@@ -41,6 +41,7 @@ func GenSignedCert(
 	caKey *rsa.PrivateKey,
 	commonName string,
 	sans []string,
+	expiry time.Time,
 ) (*x509.Certificate, *rsa.PrivateKey, error) {
 	var errOnce sync.Once
 	var firstErr error
@@ -66,7 +67,7 @@ func GenSignedCert(
 	check(err)
 
 	// Sign
-	pkixCert, err := pkix.CreateCertificateHost(pkixCACert, pkixCAKey, csr, time.Now().AddDate(10, 0, 0))
+	pkixCert, err := pkix.CreateCertificateHost(pkixCACert, pkixCAKey, csr, expiry)
 	check(err)
 
 	// Parse cert as x509
