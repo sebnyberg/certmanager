@@ -65,7 +65,7 @@ func getAzureKVCert(ctx context.Context, urlStr string, certPassword string) (*x
 	}
 
 	// Decode pfx to x509.Certificate and rsa.PublicKey
-	keyIface, cert, err := pkcs12.Decode(pfx, certPassword)
+	keyIface, cert, _, err := pkcs12.DecodeChain(pfx, certPassword)
 	if err != nil {
 		return nil, nil, appendErr("failed to parse pkcs12", err)
 	}
