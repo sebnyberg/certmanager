@@ -14,6 +14,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/services/keyvault/v7.0/keyvault"
 	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/Azure/go-autorest/autorest/azure/cli"
 	pkcs12 "software.sslmate.com/src/go-pkcs12"
@@ -155,11 +156,14 @@ func newAzureEnvAuthorizer() (autorest.Authorizer, error) {
 			return nil, fmt.Errorf("env var %v required when not logged into Azure CLI", s)
 		}
 	}
-	if err := os.Setenv("AZURE_AD_RESOURCE", "KeyVault"); err != nil {
-		return nil, err
+	cfg := &auth.ClientCredentialsConfig{
+		ClientID:     os.Getenv("AZURE_CLIENT_ID"),
+		ClientSecret: os.Getenv("AZURE_CLIENT_SECRET"),
+		TenantID:     os.Getenv("AZURE_TENANT_ID"),
+		Resource:     azure.PublicCloud.KeyVaultEndpoint,
+		AADEndpoint:  azure.PublicCloud.ActiveDirectoryEndpoint,
 	}
-
-	return auth.NewAuthorizerFromEnvironment()
+	return cfg.Authorizer()
 }
 
 var errInvalidKVSecretURL = errors.New("invalid key vault secret URL, expected format: https://{baseURL}/secrets/{secretName}(/{version}) - did you forget to change /certificates/ to /secrets/?")
