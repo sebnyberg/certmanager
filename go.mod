@@ -22,3 +22,9 @@ require (
 	golang.org/x/sys v0.0.0-20200810151505-1b9f1253b3ed // indirect
 	software.sslmate.com/src/go-pkcs12 v0.0.0-20200619203921-c9ed90bd32dc
 )
+
+retract (
+	v1.0.0
+	v1.0.1
+	v1.0.2
+)
