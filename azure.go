@@ -163,7 +163,6 @@ func newAzureEnvAuthorizer() (autorest.Authorizer, error) {
 		Resource:     azure.PublicCloud.KeyVaultEndpoint[:len(azure.PublicCloud.KeyVaultEndpoint)-1], // Don't ask me why.
 		AADEndpoint:  azure.PublicCloud.ActiveDirectoryEndpoint,
 	}
-	fmt.Println(cfg)
 	return cfg.Authorizer()
 }
 
