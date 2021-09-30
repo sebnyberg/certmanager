@@ -155,7 +155,7 @@ func newAzureEnvAuthorizer() (autorest.Authorizer, error) {
 			return nil, fmt.Errorf("env var %v required when not logged into Azure CLI", s)
 		}
 	}
-	if err := os.Setenv("AZURE_AD_RESORUCE", "KeyVault"); err != nil {
+	if err := os.Setenv("AZURE_AD_RESOURCE", "KeyVault"); err != nil {
 		return nil, err
 	}
 
