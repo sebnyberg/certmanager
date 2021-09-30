@@ -160,9 +160,10 @@ func newAzureEnvAuthorizer() (autorest.Authorizer, error) {
 		ClientID:     os.Getenv("AZURE_CLIENT_ID"),
 		ClientSecret: os.Getenv("AZURE_CLIENT_SECRET"),
 		TenantID:     os.Getenv("AZURE_TENANT_ID"),
-		Resource:     azure.PublicCloud.KeyVaultEndpoint,
+		Resource:     azure.PublicCloud.KeyVaultEndpoint[:len(azure.PublicCloud.KeyVaultEndpoint)-1], // Don't ask me why.
 		AADEndpoint:  azure.PublicCloud.ActiveDirectoryEndpoint,
 	}
+	fmt.Println(cfg)
 	return cfg.Authorizer()
 }
 

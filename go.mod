@@ -1,6 +1,6 @@
 module github.com/sebnyberg/certmanager
 
-go 1.14
+go 1.17
 
 require (
 	github.com/Azure/azure-sdk-for-go v58.0.0+incompatible
@@ -18,6 +18,17 @@ require (
 	github.com/urfave/cli/v2 v2.3.0
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect
 	software.sslmate.com/src/go-pkcs12 v0.0.0-20210415151418-c5206de65a78
+)
+
+require (
+	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
+	github.com/Azure/go-autorest/autorest/date v0.3.0 // indirect
+	github.com/Azure/go-autorest/logger v0.2.1 // indirect
+	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
+	github.com/dimchansky/utfbom v1.1.1 // indirect
+	github.com/golang-jwt/jwt/v4 v4.0.0 // indirect
+	github.com/mitchellh/go-homedir v1.1.0 // indirect
+	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 )
 
 retract (
