@@ -9,12 +9,6 @@ import (
 	"time"
 )
 
-type signedCertificate struct {
-	caCert   *x509.Certificate
-	certPool *x509.CertPool
-	tlsCert  tls.Certificate
-}
-
 func GetMTLSClientConfig(
 	ctx context.Context,
 	caURL string,

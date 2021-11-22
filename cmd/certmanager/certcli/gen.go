@@ -30,8 +30,8 @@ type genSignedConfig struct {
 	CACertPassword string `usage:"CA Certificate password - leave blank if none"`
 	OutDir         string `value:"." usage:"Output directory, defaults to current directory"`
 	TimeoutSeconds int    `name:"timeout" usage:"Timeout in seconds before giving up" value:"10"`
-	CommonName     string `usage:"Hostname for a server, e.g. '*.dev.my.domain.com' and any id for a client, e.g. 'my-client'"`
-	Domains        string `usage:"Comma-separated list of alternative domain names"`
+	CommonName     string `usage:"Subject name. Can be used to identify the subject"`
+	Domains        string `usage:"Comma-separated list of domain names (SAN)"`
 	ExpireAt       string `usage:"RFC3339 date when the cert will expire. By default one year from now."`
 }
 
@@ -49,7 +49,7 @@ func (c genSignedConfig) validate() error {
 
 type genCAConfig struct {
 	URL            string `name:"ca-url" usage:"Certificate URL to upload result to, e.g. https://myvault.azure.net/certificates/myca"`
-	Name           string `usage:"Certificate Authority (CA) name" name:"name"`
+	Name           string `usage:"Certificate Authority (CA) name"`
 	CertPassword   string `usage:"Certificate Authority (CA) certificate password - leave blank if none"`
 	TimeoutSeconds int    `name:"timeout" usage:"Timeout in seconds before giving up" value:"10"`
 	ExpireAt       string `usage:"RFC3339 date when the cert will expire. By default one year from now."`
