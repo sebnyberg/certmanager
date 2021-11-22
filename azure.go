@@ -37,47 +37,58 @@ func newAzureKVClient() (keyvault.BaseClient, error) {
 	return kv, nil
 }
 
-func getAzureKVCert(ctx context.Context, urlStr string, certPassword string) (*x509.Certificate, *rsa.PrivateKey, error) {
+func getAzureKVCert(
+	ctx context.Context,
+	urlStr string,
+	certPassword string,
+) (cert *x509.Certificate, caCerts []*x509.Certificate, key *rsa.PrivateKey, err error) {
 	kv, err := newAzureKVClient()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	// Parse URL provided by caller
 	baseURL, secretName, secretVersion, err := parseAzureSecretURL(urlStr)
 	if err != nil {
-		return nil, nil, appendErr("failed to parse secret URL", err)
+		return nil, nil, nil, appendErr("failed to parse secret URL", err)
 	}
 
 	// Retrieve secret and validate content type
 	bundle, err := kv.GetSecret(ctx, baseURL, secretName, secretVersion)
 	if err != nil {
-		return nil, nil, appendErr("failed to retrieve secret", err)
+		return nil, nil, nil, appendErr("failed to retrieve secret", err)
 	}
 	expectedContentType := "application/x-pkcs12"
 	if len(*bundle.ContentType) == 0 || *bundle.ContentType != expectedContentType {
-		return nil, nil, fmt.Errorf("invalid secret content type '%v', should be '%v'", *bundle.ContentType, expectedContentType)
+		return nil, nil, nil, fmt.Errorf("invalid secret content type '%v', should be '%v'", *bundle.ContentType, expectedContentType)
 	}
 
 	// Decode contents from base64
 	pfx, err := base64.StdEncoding.DecodeString(*bundle.Value)
 	if err != nil {
-		return nil, nil, appendErr("failed to base64-decode secret", err)
+		return nil, nil, nil, appendErr("failed to base64-decode secret", err)
 	}
 
 	// Decode pfx to x509.Certificate and rsa.PublicKey
-	keyIface, cert, _, err := pkcs12.DecodeChain(pfx, certPassword)
+	keyIface, cert, caCerts, err := pkcs12.DecodeChain(pfx, certPassword)
 	if err != nil {
-		return nil, nil, appendErr("failed to parse pkcs12", err)
+		return nil, nil, nil, appendErr("failed to parse pkcs12", err)
 	}
 	key, ok := keyIface.(*rsa.PrivateKey)
 	if !ok {
-		return nil, nil, errors.New("failed to parse key as rsa.PrivateKey")
+		return nil, nil, nil, errors.New("failed to parse key as rsa.PrivateKey")
 	}
-	return cert, key, nil
+	return cert, caCerts, key, nil
 }
 
-func uploadAzureKVCert(ctx context.Context, urlStr string, cert *x509.Certificate, key *rsa.PrivateKey, certPassword string) error {
+func uploadAzureKVCert(
+	ctx context.Context,
+	urlStr string,
+	cert *x509.Certificate,
+	caCerts []*x509.Certificate,
+	key *rsa.PrivateKey,
+	certPassword string,
+) error {
 	kv, err := newAzureKVClient()
 	if err != nil {
 		return err
@@ -99,7 +110,7 @@ func uploadAzureKVCert(ctx context.Context, urlStr string, cert *x509.Certificat
 	}
 
 	// Encode certificate to pkcs12
-	pfx, err := pkcs12.Encode(rand.Reader, key, cert, nil, certPassword)
+	pfx, err := pkcs12.Encode(rand.Reader, key, cert, caCerts, certPassword)
 	if err != nil {
 		return appendErr("failed to encode pkcs12 cert", err)
 	}

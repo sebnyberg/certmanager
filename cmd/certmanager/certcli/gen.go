@@ -2,6 +2,7 @@ package certcli
 
 import (
 	"context"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"os"
@@ -104,12 +105,12 @@ func genCACert(conf genCAConfig) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cert, key, err := certmanager.GenCACert(conf.Name, expiry)
+	cert, key, err := certmanager.GenSelfSignedCA(conf.Name, expiry)
 	if err != nil {
 		return err
 	}
 
-	return certmanager.UploadCert(ctx, conf.URL, cert, key, conf.CertPassword)
+	return certmanager.UploadCert(ctx, conf.URL, cert, nil, key, conf.CertPassword)
 }
 
 // Generate a client certificate signed by a CA.
@@ -150,12 +151,14 @@ func genSignedCert(conf genSignedConfig) error {
 	}
 
 	// Parse domain names
+	var domains []string
 	if len(conf.Domains) > 0 {
-		domains := strings.Split(conf.Domains, ",")
+		domains = strings.Split(conf.Domains, ",")
 		for i := range domains {
 			domains[i] = strings.Trim(domains[i], " ")
 		}
 	}
+	domains = append(domains, conf.CommonName)
 
 	// Create output dir
 	if err := os.MkdirAll(conf.OutDir, 0644); err != nil {
@@ -163,16 +166,23 @@ func genSignedCert(conf genSignedConfig) error {
 	}
 
 	// Fetch CA cert and key
-	caCert, caKey, err := certmanager.GetCert(ctx, conf.CAURL, conf.CACertPassword)
+	caCert, caCertChain, caKey, err := certmanager.GetCert(ctx, conf.CAURL, conf.CACertPassword)
 	if err != nil {
 		return err
 	}
 
 	// Sign cert
 	cert, key, err := certmanager.GenSignedCert(
-		caCert, caKey, conf.CommonName, []string{"localhost"}, expiry)
+		caCert, caKey, conf.CommonName, domains, expiry)
 	if err != nil {
 		return err
+	}
+
+	// Client cert should contain client -> issuer -> intermediary [ -> root ]
+	certs := []*x509.Certificate{cert}
+	if len(caCertChain) > 0 {
+		certs = append(certs, caCert)
+		certs = append(certs, caCertChain[:len(caCertChain)-1]...)
 	}
 
 	// Write files
@@ -182,7 +192,7 @@ func genSignedCert(conf genSignedConfig) error {
 	}
 
 	clientCertPath := fmt.Sprintf("%v/%v.crt", conf.OutDir, conf.CommonName)
-	if err := writeCert(clientCertPath, cert); err != nil {
+	if err := writeCert(clientCertPath, certs...); err != nil {
 		return err
 	}
 

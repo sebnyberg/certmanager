@@ -47,13 +47,7 @@ func writeKey(path string, rsaKey *rsa.PrivateKey) error {
 	return err
 }
 
-func writeCert(path string, x509Cert *x509.Certificate) error {
-	cert := pkix.NewCertificateFromDER(x509Cert.Raw)
-	certBytes, err := cert.Export()
-	if err != nil {
-		return err
-	}
-	log.Println("saving certificate to", path, "...")
+func writeCert(path string, x509Certs ...*x509.Certificate) error {
 	certFile, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR|os.O_EXCL, 0600)
 	if err != nil {
 		if errors.Is(err, os.ErrExist) {
@@ -63,6 +57,17 @@ func writeCert(path string, x509Cert *x509.Certificate) error {
 		return err
 	}
 	defer certFile.Close()
-	_, err = certFile.Write(certBytes)
-	return err
+	log.Println("saving certificate to", path, "...")
+
+	for _, cert := range x509Certs {
+		cert := pkix.NewCertificateFromDER(cert.Raw)
+		certBytes, err := cert.Export()
+		if err != nil {
+			return err
+		}
+		if _, err = certFile.Write(certBytes); err != nil {
+			return err
+		}
+	}
+	return nil
 }

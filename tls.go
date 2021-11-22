@@ -5,31 +5,14 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"time"
-
-	"github.com/square/certstrap/pkix"
 )
 
 type signedCertificate struct {
 	caCert   *x509.Certificate
 	certPool *x509.CertPool
 	tlsCert  tls.Certificate
-}
-
-// TLSCertificate returns a tls.Certificate from the provided cert and key
-func TLSCertificate(cert *x509.Certificate, key *rsa.PrivateKey) (tls.Certificate, error) {
-	pkixCert := pkix.NewCertificateFromDER(cert.Raw)
-	certPEM, err := pkixCert.Export()
-	if err != nil {
-		return tls.Certificate{}, err
-	}
-	pkixKey := pkix.NewKey(key.Public, key)
-	keyPEM, err := pkixKey.ExportPrivate()
-	if err != nil {
-		return tls.Certificate{}, err
-	}
-
-	return tls.X509KeyPair(certPEM, keyPEM)
 }
 
 func GetMTLSClientConfig(
@@ -40,7 +23,7 @@ func GetMTLSClientConfig(
 	serverName string,
 	expiresAt time.Time,
 ) (*tls.Config, error) {
-	caCert, caKey, err := GetCert(ctx, caURL, caPassword)
+	caCert, caCerts, caKey, err := GetCert(ctx, caURL, caPassword)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +33,13 @@ func GetMTLSClientConfig(
 		return nil, err
 	}
 
-	tlsCert, err := TLSCertificate(cert, key)
+	certs := []*x509.Certificate{cert}
+	if len(caCerts) > 0 {
+		certs = append(certs, caCert)
+		certs = append(certs, caCerts[:len(caCerts)-1]...)
+	}
+
+	tlsCert, err := TLSCertificate(certs, key)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +64,7 @@ func GetMTLSServerConfig(
 	altNames []string,
 	expiresAt time.Time,
 ) (*tls.Config, error) {
-	caCert, caKey, err := GetCert(ctx, caURL, caPassword)
+	caCert, caCerts, caKey, err := GetCert(ctx, caURL, caPassword)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +74,13 @@ func GetMTLSServerConfig(
 		return nil, err
 	}
 
-	tlsCert, err := TLSCertificate(cert, key)
+	certs := []*x509.Certificate{cert}
+	if len(caCerts) > 0 {
+		certs = append(certs, caCert)
+		certs = append(certs, caCerts[:len(caCerts)-1]...)
+	}
+
+	tlsCert, err := TLSCertificate(certs, key)
 	if err != nil {
 		return nil, err
 	}
@@ -100,4 +95,22 @@ func GetMTLSServerConfig(
 	}
 
 	return &tlsConf, nil
+}
+
+// TLSCertificate returns a tls.Certificate from the provided certs and key
+func TLSCertificate(certs []*x509.Certificate, key *rsa.PrivateKey) (tls.Certificate, error) {
+	certBytes := make([]byte, 0)
+	for _, cert := range certs {
+		block := &pem.Block{
+			Type:  "CERTIFICATE",
+			Bytes: cert.Raw,
+		}
+		certBytes = append(certBytes, block.Bytes...)
+	}
+	keyBytes := &pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(key),
+	}
+
+	return tls.X509KeyPair(certBytes, keyBytes.Bytes)
 }

@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 	"time"
@@ -14,20 +13,31 @@ import (
 	"github.com/square/certstrap/pkix"
 )
 
-func GetCert(ctx context.Context, url string, certPassword string) (*x509.Certificate, *rsa.PrivateKey, error) {
+func GetCert(
+	ctx context.Context,
+	url string,
+	certPassword string,
+) (cert *x509.Certificate, caCerts []*x509.Certificate, key *rsa.PrivateKey, err error) {
 	if !strings.Contains(url, "vault.azure.net") {
-		return nil, nil, errors.New("only azure key vault URLs are supported")
+		return nil, nil, nil, errors.New("only azure key vault URLs are supported")
 	}
 
 	return getAzureKVCert(ctx, url, certPassword)
 }
 
-func UploadCert(ctx context.Context, url string, cert *x509.Certificate, key *rsa.PrivateKey, certPassword string) error {
+func UploadCert(
+	ctx context.Context,
+	url string,
+	cert *x509.Certificate,
+	caCerts []*x509.Certificate,
+	key *rsa.PrivateKey,
+	certPassword string,
+) error {
 	if !strings.Contains(url, "vault.azure.net") {
 		return errors.New("only azure key vault URLs are supported")
 	}
 
-	return uploadAzureKVCert(ctx, url, cert, key, certPassword)
+	return uploadAzureKVCert(ctx, url, cert, caCerts, key, certPassword)
 }
 
 // GenSignedCert generates a new certificate that has been signed by the provided
@@ -42,9 +52,8 @@ func GenSignedCert(
 	commonName string,
 	sans []string,
 	expiry time.Time,
-) (*x509.Certificate, *rsa.PrivateKey, error) {
+) (cert *x509.Certificate, key *rsa.PrivateKey, firstErr error) {
 	var errOnce sync.Once
-	var firstErr error
 	check := func(err error) {
 		if err != nil {
 			errOnce.Do(func() {
@@ -71,7 +80,7 @@ func GenSignedCert(
 	check(err)
 
 	// Parse cert as x509
-	cert, err := pkixCert.GetRawCertificate()
+	cert, err = pkixCert.GetRawCertificate()
 	check(err)
 
 	// Parse key as *rsa.Key
@@ -88,42 +97,32 @@ func GenSignedCert(
 	return nil, nil, firstErr
 }
 
-// GenCACert generates a self-signed Certificate Authority certificate and key.
-func GenCACert(
+// GenSelfSignedCA generates a self-signed Certificate Authority certificate and key.
+func GenSelfSignedCA(
 	name string,
 	expiry time.Time,
-) (*x509.Certificate, *rsa.PrivateKey, error) {
-	key, err := pkix.CreateRSAKey(2048)
+) (cert *x509.Certificate, key *rsa.PrivateKey, err error) {
+	pkixKey, err := pkix.CreateRSAKey(2048)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	cert, err := pkix.CreateCertificateAuthority(key, "", expiry, "", "", "", "", name)
+	pkixCert, err := pkix.CreateCertificateAuthority(pkixKey, "", expiry, "", "", "", "", name)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	x509cert, err := cert.GetRawCertificate()
+	x509cert, err := pkixCert.GetRawCertificate()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	rsaKey, ok := key.Private.(*rsa.PrivateKey)
+	rsaKey, ok := pkixKey.Private.(*rsa.PrivateKey)
 	if !ok {
 		return nil, nil, errors.New("failed to parse private CA key as RSA key")
 	}
 
 	return x509cert, rsaKey, nil
-}
-
-func check(err error, msg string) {
-	if err != nil {
-		log.Fatal(msg)
-	}
-}
-
-func wrapErr(s string, err error) error {
-	return fmt.Errorf("%w: %v", err, s)
 }
 
 func appendErr(s string, err error) error {

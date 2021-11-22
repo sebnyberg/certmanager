@@ -2,6 +2,7 @@ package certcli
 
 import (
 	"context"
+	"crypto/x509"
 	"errors"
 	"os"
 	"time"
@@ -50,7 +51,7 @@ func download(conf DownloadConfig) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cert, key, err := certmanager.GetCert(ctx, conf.URL, conf.CertPassword)
+	cert, caCerts, key, err := certmanager.GetCert(ctx, conf.URL, conf.CertPassword)
 	if err != nil {
 		select {
 		case <-ctx.Done():
@@ -59,6 +60,9 @@ func download(conf DownloadConfig) error {
 		}
 		return err
 	}
+
+	certs := []*x509.Certificate{cert}
+	certs = append(certs, caCerts...)
 
 	fileName := cert.Subject.CommonName
 	if err = os.MkdirAll(conf.OutDir, 0644); err != nil {
@@ -73,7 +77,7 @@ func download(conf DownloadConfig) error {
 
 	// Write cert to file
 	certPath := conf.OutDir + "/" + fileName + ".crt"
-	if err := writeCert(certPath, cert); err != nil {
+	if err := writeCert(certPath, certs...); err != nil {
 		return err
 	}
 
