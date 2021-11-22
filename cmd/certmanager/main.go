@@ -9,12 +9,15 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+const version = "v0.0.17"
+
 func main() {
 	app := &cli.App{
 		Name:        "certmanager",
 		HelpName:    "certmanager",
 		Description: "certmanager contains some useful commands for working with certs",
 		Usage:       "management of TLS certificates",
+		Version:     version,
 		Commands: []*cli.Command{
 			certcli.NewCmdDownload(),
 			certcli.NewCmdGen(),
