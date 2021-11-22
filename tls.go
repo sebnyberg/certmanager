@@ -105,12 +105,12 @@ func TLSCertificate(certs []*x509.Certificate, key *rsa.PrivateKey) (tls.Certifi
 			Type:  "CERTIFICATE",
 			Bytes: cert.Raw,
 		}
-		certBytes = append(certBytes, block.Bytes...)
+		certBytes = append(certBytes, pem.EncodeToMemory(block)...)
 	}
 	keyBytes := &pem.Block{
 		Type:  "RSA PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(key),
 	}
 
-	return tls.X509KeyPair(certBytes, keyBytes.Bytes)
+	return tls.X509KeyPair(certBytes, pem.EncodeToMemory(keyBytes))
 }
